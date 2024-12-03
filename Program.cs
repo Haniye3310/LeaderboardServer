@@ -8,9 +8,9 @@ using MongoDB.Driver;
 [Serializable]
 class LeaderboardData
 {
-    public int ID;
-    public string? Name;
-    public int Score;
+    public int ID{ get; set; }
+    public string? Name{ get; set; }
+    public int Score{ get; set; }
 }
 class Program
 {
@@ -63,12 +63,38 @@ class Program
                 HttpListenerContext context = listener.GetContext();
                 string responseString = string.Empty;
                 Console.WriteLine($"URLLOCALPATH:{context?.Request?.Url?.LocalPath}");
-                if(context?.Request?.Url?.LocalPath == "/update")
+                if (context?.Request?.Url?.LocalPath == "/update")
                 {
-                    responseString = "UpdateResponse";
+                    // Read the JSON payload
+                    using (var reader = new StreamReader(context.Request.InputStream, context.Request.ContentEncoding))
+                    {
+                        string json = reader.ReadToEnd();
+                        Console.WriteLine($"Received JSON: {json}");
 
+                        try
+                        {
+                            // Deserialize JSON into LeaderboardData
+                            var leaderboardData = System.Text.Json.JsonSerializer.Deserialize<LeaderboardData>(json);
+
+                            if (leaderboardData != null)
+                            {
+                                Console.WriteLine($"Deserialized Data: ID = {leaderboardData.ID}, Name = {leaderboardData.Name}, Score = {leaderboardData.Score}");
+                                responseString = "Data received and processed successfully!";
+                            }
+                            else
+                            {
+                                responseString = "Invalid JSON format!";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Deserialization failed: {ex.Message}");
+                            responseString = "Failed to process the data.";
+                        }
+                    }
                 }
-                else if(context?.Request?.Url?.LocalPath == "/get")
+
+                else if (context?.Request?.Url?.LocalPath == "/get")
                 {
                     responseString = "getResponse";
                 }

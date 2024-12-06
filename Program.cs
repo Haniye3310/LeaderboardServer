@@ -20,6 +20,8 @@ class Program
 {
     static void Main(string[] args)
     {
+       
+
         IMongoDatabase database;
         //connecting to the MongoDB
         {
@@ -31,6 +33,15 @@ class Program
             database = client.GetDatabase("LeaderboardProject"); // Replace with your database name
 
         }
+
+        List<LeaderboardData> leaderboardDatas = new List<LeaderboardData>();
+        {
+            var collection = database.GetCollection<LeaderboardData>("Leaderboard");
+
+            // Fetch all documents from MongoDB
+            leaderboardDatas = collection.Find<LeaderboardData>(new BsonDocument()).ToList();
+        }
+
 
 
         // Define the URL and port to listen on
@@ -81,6 +92,16 @@ class Program
                                 // Perform the upsert operation
                                 var result = collection.UpdateOne(filter, update, updateOptions);
 
+                                // Update in memory database
+                                {
+                                     int index = leaderboardDatas.FindIndex(X=>X.Id== leaderboardData.Id);
+                                     if(index!= -1)
+                                     {
+                                        leaderboardDatas[index].Name = leaderboardData.Name;
+                                        leaderboardDatas[index].Score = leaderboardData.Score;
+                                     }
+                                }
+
                                 if (result.UpsertedId != null)
                                 {
                                     Console.WriteLine($"Inserted new document with ID: {result.UpsertedId}");
@@ -108,10 +129,9 @@ class Program
 
                 else if (context?.Request?.Url?.LocalPath == "/get")
                 {
-                    var collection = database.GetCollection<LeaderboardData>("Leaderboard");
 
                     // Fetch all documents from MongoDB
-                    var allDocuments = collection.Find<LeaderboardData>(new BsonDocument()).ToList();
+                    var allDocuments =leaderboardDatas.ToList();
 
                     // Convert MongoDB documents to JSON
                     string jsonResponse = allDocuments.ToJson();

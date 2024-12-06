@@ -4,44 +4,33 @@ using System.Net;
 using System.Text;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Bson.Serialization.Attributes;
 
 [Serializable]
-class LeaderboardData
+class LeaderboardData 
 {
-    public int ID{ get; set; }
-    public string? Name{ get; set; }
-    public int Score{ get; set; }
+    [BsonId] // Indicates this is the primary key
+    [BsonRepresentation(BsonType.ObjectId)]
+    public string? Id { get; set; }
+    public int ID { get; set; }
+    public string? Name { get; set; }
+    public int Score { get; set; }
 }
 class Program
 {
     static void Main(string[] args)
     {
+        IMongoDatabase database;
         //connecting to the MongoDB
-        // {
-        //     // Replace with your MongoDB connection string
-        //     string connectionString = "mongodb://localhost:27017";
+        {
+            // Replace with your MongoDB connection string
+            string connectionString = "mongodb://adminUser:strongPassword@localhost:27017/?authSource=admin&authMechanism=SCRAM-SHA-256";
 
-        //     // Connect to MongoDB
-        //     var client = new MongoClient(connectionString);
-        //     var database = client.GetDatabase("my_database"); // Replace with your database name
-        //     var collection = database.GetCollection<BsonDocument>("my_collection"); // Replace with your collection name
+            // Connect to MongoDB
+            var client = new MongoClient(connectionString);
+            database = client.GetDatabase("LeaderboardProject"); // Replace with your database name
 
-        //     // Create a sample document to insert
-        //     var document = new BsonDocument
-        //     {
-        //         { "name", "John Doe" },
-        //         { "age", 30 },
-        //         { "email", "johndoe@example.com" },
-        //         { "created_at", DateTime.UtcNow }
-        //     };
-
-        //     // Insert the document
-        //     collection.InsertOne(document);
-
-        //     Console.WriteLine("Document inserted successfully!");
-        // }
-
-
+        }
 
 
         // Define the URL and port to listen on
@@ -70,15 +59,37 @@ class Program
                     {
                         string json = reader.ReadToEnd();
                         Console.WriteLine($"Received JSON: {json}");
+                        LeaderboardData leaderboardData;
 
                         try
                         {
                             // Deserialize JSON into LeaderboardData
-                            var leaderboardData = System.Text.Json.JsonSerializer.Deserialize<LeaderboardData>(json);
+                            leaderboardData = System.Text.Json.JsonSerializer.Deserialize<LeaderboardData>(json);
 
                             if (leaderboardData != null)
                             {
-                                Console.WriteLine($"Deserialized Data: ID = {leaderboardData.ID}, Name = {leaderboardData.Name}, Score = {leaderboardData.Score}");
+                                var collection = database.GetCollection<LeaderboardData>("Leaderboard");
+
+                                // Check if the ID exists and perform upsert
+                                var filter = Builders<LeaderboardData>.Filter.Eq(ld => ld.ID, leaderboardData.ID);
+                                var update = Builders<LeaderboardData>.Update
+                                    .Set(ld => ld.Name, leaderboardData.Name)
+                                    .Set(ld => ld.Score, leaderboardData.Score);
+
+                                var updateOptions = new UpdateOptions { IsUpsert = true };
+
+                                // Perform the upsert operation
+                                var result = collection.UpdateOne(filter, update, updateOptions);
+
+                                if (result.UpsertedId != null)
+                                {
+                                    Console.WriteLine($"Inserted new document with ID: {result.UpsertedId}");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Updated existing document with ID: {leaderboardData.ID}");
+                                }
+
                                 responseString = "Data received and processed successfully!";
                             }
                             else
@@ -94,27 +105,30 @@ class Program
                     }
                 }
 
+
                 else if (context?.Request?.Url?.LocalPath == "/get")
                 {
-                    responseString = "getResponse";
+                    var collection = database.GetCollection<LeaderboardData>("Leaderboard");
+
+                    // Fetch all documents from MongoDB
+                    var allDocuments = collection.Find<LeaderboardData>(new BsonDocument()).ToList();
+
+                    // Convert MongoDB documents to JSON
+                    string jsonResponse = allDocuments.ToJson();
+
+                    // Send response to the client
+                    context.Response.ContentType = "application/json";
+                    context.Response.ContentEncoding = Encoding.UTF8;
+                    byte[] buffer = Encoding.UTF8.GetBytes(jsonResponse);
+                    context.Response.ContentLength64 = buffer.Length;
+                    using (Stream output = context.Response.OutputStream)
+                    {
+                        context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+
+                    }
+
+                    Console.WriteLine("Response sent to client.");
                 }
-                // Get the response object
-                HttpListenerResponse response = context.Response;
-
-                // Create the response string
-                byte[] buffer = Encoding.UTF8.GetBytes(responseString);
-
-                // Set the response headers and content
-                response.ContentLength64 = buffer.Length;
-                response.ContentType = "text/html";
-
-                // Write the response and close the connection
-                using (Stream output = response.OutputStream)
-                {
-                    output.Write(buffer, 0, buffer.Length);
-                }
-
-                Console.WriteLine($"Request served at {DateTime.Now}");
             }
         }
         catch (Exception ex)

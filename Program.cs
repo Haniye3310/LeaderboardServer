@@ -100,6 +100,7 @@ class Program
                                         leaderboardDatas[index].Name = leaderboardData.Name;
                                         leaderboardDatas[index].Score = leaderboardData.Score;
                                      }
+                                     leaderboardDatas.Sort((l1,l2)=> l1.Score.CompareTo(l2.Score));
                                 }
 
                                 if (result.UpsertedId != null)

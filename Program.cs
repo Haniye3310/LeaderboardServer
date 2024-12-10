@@ -5,9 +5,10 @@ using System.Text;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Bson.Serialization.Attributes;
+using LeaderboardShared;
 
 [Serializable]
-class LeaderboardData 
+class LeaderboardData :ILeaderboardData
 {
     [BsonId] // Indicates this is the primary key
     [BsonRepresentation(BsonType.ObjectId)]

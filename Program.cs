@@ -133,10 +133,10 @@ class Program
                 {
 
                     // Fetch all documents from MongoDB
-                    var allDocuments =leaderboardDatas.ToList();
+                    var allDocuments =leaderboardDatas.Cast<ILeaderboardData>().ToList();
 
                     // Convert MongoDB documents to JSON
-                    string jsonResponse = allDocuments.ToJson();
+                    string jsonResponse = System.Text.Json.JsonSerializer.Serialize(allDocuments);
 
                     // Send response to the client
                     context.Response.ContentType = "application/json";
